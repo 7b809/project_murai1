@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   let browser;
   try {
-    // ✅ Determine Chrome executable path (local or Vercel)
+    // ✅ Choose the right Chrome binary (local vs serverless)
     const execPath =
       os.platform() === "win32"
         ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
@@ -23,7 +23,13 @@ export default async function handler(req, res) {
     console.log(`[INFO] Using Chrome path: ${execPath}`);
 
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+      ],
       defaultViewport: chromium.defaultViewport,
       executablePath: execPath,
       headless: chromium.headless,
@@ -33,11 +39,11 @@ export default async function handler(req, res) {
 
     const page = await browser.newPage();
 
-    // ✅ Add user-agent to bypass bot detection
+    // ✅ Set user-agent to prevent bot blocking
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-      "AppleWebKit/537.36 (KHTML, like Gecko) " +
-      "Chrome/121.0.0.0 Safari/537.36"
+        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/122.0.0.0 Safari/537.36"
     );
 
     console.log(`[ACTION] Navigating to ${targetUrl}`);
@@ -46,9 +52,10 @@ export default async function handler(req, res) {
     let foundLink = null;
     const maxPresses = 25;
 
-    // ✅ Function for delay
+    // Simple delay function
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+    // ✅ Press "K" key to trigger video play until .m3u8/.mp4 appears
     for (let i = 0; i < maxPresses; i++) {
       console.log(`[ACTION] Pressing "K" (${i + 1}/${maxPresses})`);
       await page.keyboard.press("k");
@@ -68,7 +75,7 @@ export default async function handler(req, res) {
 
     if (foundLink) {
       console.log(`[SUCCESS] Found video link: ${foundLink}`);
-      return res.json({ status: "ok", watch_url: foundLink });
+      return res.status(200).json({ status: "ok", watch_url: foundLink });
     } else {
       console.log("[FAIL] No video link found after 25 key presses.");
       return res.status(404).json({
